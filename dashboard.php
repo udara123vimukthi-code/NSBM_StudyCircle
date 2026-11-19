@@ -1,0 +1,207 @@
+<?php
+require_once __DIR__ . '/config/auth.php';
+$user = require_login();
+
+if ($user['role'] === 'admin') {
+    header('Location: admin_dashboard.php');
+    exit;
+}
+
+$stmt = $pdo->prepare(
+    "SELECT COUNT(*) AS uploads,
+            COALESCE(SUM(status = 'approved'), 0) AS approved,
+            COALESCE(SUM(status = 'pending'), 0) AS pending,
+            COALESCE(SUM(status = 'rejected'), 0) AS rejected
+     FROM materials WHERE uploaded_by = ?"
+);
+$stmt->execute([$user['id']]);
+$materialStats = $stmt->fetch();
+
+$stmt = $pdo->prepare(
+    'SELECT COUNT(*) FROM group_members WHERE user_id = ?'
+);
+$stmt->execute([$user['id']]);
+$groupCount = (int) $stmt->fetchColumn();
+
+$links = [
+    [
+        'materials.php',
+        'Explore materials',
+        'Find approved notes and resources. Read ratings and join the comments.',
+        'Browse resources'
+    ],
+    [
+        'upload_material.php',
+        'Share your notes',
+        'Upload a PDF and submit it for admin approval.',
+        'Upload material'
+    ],
+    [
+        'my_uploads.php',
+        'My uploads',
+        'Check approval status, edit details, and manage your submissions.',
+        'Manage uploads'
+    ],
+    [
+        'forum.php',
+        'Academic discussions',
+        'Ask questions, share answers, and learn from your classmates.',
+        'Open forum'
+    ],
+    [
+        'groups.php',
+        'Study groups and sessions',
+        'Join a group or create your own. Open a joined group to schedule sessions.',
+        'Explore groups'
+    ]
+];
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard | NSBM StudyCircle</title>
+    <link rel="stylesheet" href="site.css">
+    <link rel="stylesheet" href="theme.css?v=1">
+    <script src="theme.js?v=1"></script>
+    <link rel="stylesheet" href="branding.css?v=1">
+    <link rel="stylesheet" href="nsbm-professional.css?v=1">
+</head>
+<body>
+<header class="site-header">
+    <div class="container header-inner">
+        <a class="brand" href="dashboard.php">
+            <span class="brand-mark brand-mark-logo" aria-hidden="true"><img src="assets/nsbm-logo.svg" alt="NSBM Green University Town"></span>
+            <span>
+                <strong>StudyCircle</strong>
+                <small>STUDENT DASHBOARD</small>
+            </span>
+        </a>
+
+        <nav aria-label="Student navigation">
+            <button type="button" class="theme-toggle" aria-label="Switch to dark theme" aria-pressed="false" hidden>Dark mode</button>
+<a class="profile-chip" href="profile.php" aria-label="Open your profile" title="View profile">
+    <span class="profile-avatar" aria-hidden="true"><?= escape(mb_strtoupper(mb_substr($user['full_name'], 0, 1))) ?></span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+    <span class="profile-name">Profile</span>
+</a>
+            <a href="index.php">Home</a>
+            <a href="materials.php">Materials</a>
+            <a href="forum.php">Forum</a>
+            <a href="groups.php">Groups</a>
+            <a href="study_tips.php">Study tips</a>
+
+            <form method="post" action="logout.php">
+                <input type="hidden" name="csrf_token"
+                       value="<?= escape(csrf_token()) ?>">
+                <button class="button button-outline" type="submit">
+                    Log out
+                </button>
+            </form>
+        </nav>
+    </div>
+</header>
+
+<main class="container">
+    <section class="welcome">
+        <p class="eyebrow">NSBM Green University</p>
+        <h1>Welcome, <?= escape($user['full_name']) ?>!</h1>
+        <p>Pick up a new idea, share what you know, or plan your next study session.</p>
+    <div class="actions dashboard-actions"><a class="button button-outline" href="materials.php">Browse materials &rarr;</a><a class="button button-outline" href="upload_material.php">Share notes &rarr;</a><a class="button button-outline" href="groups.php">Find a study group &rarr;</a></div>
+    </section>
+
+    <section class="stats" aria-label="Your activity">
+        <article class="card">
+            <h2 class="stat-label">My uploads</h2>
+            <p class="stat-number"><?= (int) $materialStats['uploads'] ?></p>
+        </article>
+        <article class="card">
+            <h2 class="stat-label">Approved uploads</h2>
+            <p class="stat-number"><?= (int) $materialStats['approved'] ?></p>
+        </article>
+        <article class="card">
+            <h2 class="stat-label">Pending uploads</h2>
+            <p class="stat-number"><?= (int) $materialStats['pending'] ?></p>
+        </article>
+
+        <article class="card">
+            <h2 class="stat-label">Rejected uploads</h2>
+            <p class="stat-number"><?= (int) $materialStats['rejected'] ?></p>
+        </article>
+        <article class="card">
+            <h2 class="stat-label">My groups</h2>
+            <p class="stat-number"><?= $groupCount ?></p>
+        </article>
+    </section>
+
+    <div class="section-heading">
+        <h2>Your learning space</h2>
+    </div>
+
+    <section class="grid" aria-label="Student tools">
+        <?php foreach ($links as [$url, $title, $description, $label]): ?>
+            <a class="card card-link" href="<?= escape($url) ?>">
+                <h3><?= escape($title) ?></h3>
+                <p><?= escape($description) ?></p>
+                <span class="link-label"><?= escape($label) ?> &rarr;</span>
+            </a>
+        <?php endforeach; ?>
+    </section>
+
+    <section class="home-highlight">
+        <article class="card">
+            <span class="badge">Keep moving</span>
+            <h2>One useful habit</h2>
+            <p>Upload a clear, well-named resource after each topic you finish. It makes revision easier for everyone.</p>
+            <a class="button button-outline" href="study_tips.php">View study tips</a>
+        </article>
+        <article class="card">
+            <span class="badge">Quick access</span>
+            <h2>Need help with a topic?</h2>
+            <p>Ask a question in the forum and check whether another student has already shared an explanation.</p>
+            <a class="button" href="forum.php">Open forum</a>
+        </article>
+    </section>
+
+    <section class="card account">
+        <h2>Your account</h2>
+        <p>
+            <strong>Student ID:</strong>
+            <?= escape($user['student_id']) ?><br>
+            <strong>Email:</strong>
+            <?= escape($user['email']) ?>
+        </p>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <div class="container">
+        <div class="sc-footer-grid">
+            <div class="sc-footer-brand">
+                <img src="assets/nsbm-logo.svg" alt="NSBM Green University Town">
+                <p>StudyCircle is a student community for sharing notes, asking questions and organising group study at NSBM Green University.</p>
+            </div>
+            <div>
+                <h4>StudyCircle</h4>
+                <ul>
+                    <li><a href="index.php">Home</a></li>
+                    <li><a href="about.php">About the project</a></li>
+                    <li><a href="study_tips.php">Study tips</a></li>
+                    <li><a href="faq.php">Help and FAQ</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4>NSBM Green University</h4>
+                <ul>
+                    <li>Faculty of Computing</li>
+                    <li>Batch 26.1 IFSL</li>
+                    <li><a href="https://www.nsbm.ac.lk" target="_blank" rel="noopener">nsbm.ac.lk</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="sc-footer-bottom">&copy; 2026 NSBM StudyCircle &middot; Student coursework project</div>
+    </div>
+</footer>
+</body>
+</html>
